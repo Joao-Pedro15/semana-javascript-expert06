@@ -1,0 +1,22 @@
+{
+  "name": "semana-jsexpert06",
+  "version": "1.0.0",
+  "description": "Seja bem vindo(a) à sexta Semana Javascript Expert. Este é o código inicial para iniciar nossa jornada.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "live-reload": "nodemon server/index.js",
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nodemon": "^2.0.22",
+    "pino": "^7.8.0",
+    "pino-pretty": "^7.5.3"
+  }
+}
