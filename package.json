@@ -10,7 +10,11 @@
     "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --no-cache",
     "test:watch": "LOG_DISABLE=true NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --no-cache --watchAll",
     "test:coverage": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --no-cache --coverage tests/unit",
-    "live-reload:docker": "docker-compose up --build live-reload"
+    "test:e2e": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --no-cache tests/e2e",
+    "live-reload:docker": "docker-compose up --build live-reload",
+    "test:docker": "docker-compose up --build test",
+    "test:watch:docker": "docker-compose up --build test-watch",
+    "test:coverage:docker": "docker-compose up --build test-coverage"
   },
   "engines": {
     "node": "18"
@@ -25,6 +29,8 @@
     "throttle": "^1.0.3"
   },
   "devDependencies": {
-    "jest": "^27.5.1"
+    "jest": "^27.5.1",
+    "portfinder": "^1.0.28",
+    "supertest": "^6.2.2"
   }
 }
