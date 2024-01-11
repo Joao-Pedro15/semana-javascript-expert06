@@ -1,16 +1,32 @@
 import fs from 'fs'
 import fsPromises from 'fs/promises'
+import {
+  randomUUID
+} from 'crypto'
 import config from './config.js'
-import path, { join, extname } from 'path'
-import { randomUUID } from 'crypto'
-import { PassThrough, Writable } from 'stream'
+import {
+  PassThrough,
+  Writable
+} from 'stream'
+import {
+  once
+} from 'events'
 import streamsPromises from 'stream/promises'
+
 import Throttle from 'throttle'
 import childProcess from 'child_process'
-import { logger } from './util.js'
-import { once } from 'events'
+import {
+  logger
+} from './util.js'
+import path, {
+  join,
+  extname
+} from 'path'
 const {
-  dir: { publicDirectory, fxDirectory },
+  dir: {
+    publicDirectory,
+    fxDirectory
+  },
   constants: {
     fallbackBitRate,
     englishConversation,
@@ -20,9 +36,7 @@ const {
     fxVolume
   }
 } = config
-
 export class Service {
-
   constructor() {
     this.clientStreams = new Map()
     this.currentSong = englishConversation
@@ -40,14 +54,11 @@ export class Service {
       id,
       clientStream
     }
+
   }
 
   removeClientStream(id) {
     this.clientStreams.delete(id)
-  }
-
-  createFileStream(filename) {
-    return fs.createReadStream(filename)
   }
 
   _executeSoxCommand(args) {
@@ -61,16 +72,17 @@ export class Service {
         '-B', // bitrate
         song
       ]
-
       const {
         stderr, // tudo que é erro
         stdout, // tudo que é log
-        //stdin // enviar dados como stream
+        // stdin // enviar dados como stream
       } = this._executeSoxCommand(args)
+
       await Promise.all([
         once(stderr, 'readable'),
         once(stdout, 'readable'),
       ])
+
       const [success, error] = [stdout, stderr].map(stream => stream.read())
       if (error) return await Promise.reject(error)
       return success
@@ -80,6 +92,7 @@ export class Service {
 
     } catch (error) {
       logger.error(`deu ruim no bitrate: ${error}`)
+
       return fallbackBitRate
     }
   }
@@ -88,18 +101,19 @@ export class Service {
     return new Writable({
       write: (chunk, enc, cb) => {
         for (const [id, stream] of this.clientStreams) {
-          // se o client desconectou nao devemos mais mandar dados pra ele
+          // se o cliente descontou não devemos mais mandar dados pra ele
           if (stream.writableEnded) {
             this.clientStreams.delete(id)
             continue;
           }
+
           stream.write(chunk)
         }
+
         cb()
       }
     })
   }
-
   async startStreamming() {
     logger.info(`starting with ${this.currentSong}`)
     const bitRate = this.currentBitRate = (await this.getBitRate(this.currentSong)) / bitRateDivisor
@@ -116,22 +130,27 @@ export class Service {
     this.throttleTransform?.end?.()
   }
 
+  createFileStream(filename) {
+    return fs.createReadStream(filename)
+  }
+
   async getFileInfo(file) {
     // file = home/index.html
     const fullFilePath = join(publicDirectory, file)
-    // valida se existe, se nao existe estoura erro!
+    // valida se existe, se não existe estoura erro!!
     await fsPromises.access(fullFilePath)
     const fileType = extname(fullFilePath)
     return {
       type: fileType,
       name: fullFilePath
     }
-
   }
 
   async getFileStream(file) {
-    const { name, type } = await this.getFileInfo(file)
-
+    const {
+      name,
+      type
+    } = await this.getFileInfo(file)
     return {
       stream: this.createFileStream(name),
       type
@@ -141,40 +160,43 @@ export class Service {
   async readFxByName(fxName) {
     const songs = await fsPromises.readdir(fxDirectory)
     const chosenSong = songs.find(filename => filename.toLowerCase().includes(fxName))
-    if (!chosenSong) return Promise.reject(`the song ${fxName} wasn´t found!`)
+    if (!chosenSong) return Promise.reject(`the song ${fxName} wasn't found!`)
+
     return path.join(fxDirectory, chosenSong)
   }
 
   appendFxStream(fx) {
-    const throttleTransform = new Throttle(this.currentBitRate)
+    const throttleTransformable = new Throttle(this.currentBitRate)
     streamsPromises.pipeline(
-      throttleTransform,
+      throttleTransformable,
       this.broadCast()
     )
 
     const unpipe = () => {
       const transformStream = this.mergeAudioStreams(fx, this.currentReadable)
-      this.throttleTransform = throttleTransform
+
+      this.throttleTransform = throttleTransformable
       this.currentReadable = transformStream
       this.currentReadable.removeListener('unpipe', unpipe)
 
       streamsPromises.pipeline(
         transformStream,
-        throttleTransform
+        throttleTransformable
       )
-    }
 
+    }
     this.throttleTransform.on('unpipe', unpipe)
     this.throttleTransform.pause()
     this.currentReadable.unpipe(this.throttleTransform)
   }
 
+ 
   mergeAudioStreams(song, readable) {
     const transformStream = PassThrough()
     const args = [
       '-t', audioMediaType,
-      '-', songVolume,
-      // -m => merge. o - é para receber como stream
+      '-v', songVolume,
+      // -m => merge -> o - é para receber como stream
       '-m', '-',
       '-t', audioMediaType,
       '-v', fxVolume,
@@ -183,20 +205,24 @@ export class Service {
       '-'
     ]
 
-    const { stdin, stdout } = this._executeSoxCommand(args)
+    const {
+      stdout,
+      stdin
+    } = this._executeSoxCommand(args)
+
     // plugamos a stream de conversacao
     // na entrada de dados do terminal
     streamsPromises.pipeline(
-      readable,
-      stdin
-    )
-    // .catch(error => logger.error(`error on sending stream to sox: ${error}`))
+        readable,
+        stdin
+      )
+      // .catch(error => logger.error(`error on sending stream to sox: ${error}`))
 
     streamsPromises.pipeline(
-      stdout,
-      transformStream
-    )
-    // .catch(error => logger.error(`error on received stream to sox ${error}`))
+        stdout,
+        transformStream
+      )
+      // .catch(error => logger.error(`error on receiving stream from sox: ${error}`))
 
     return transformStream
   }
